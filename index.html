@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#176b4d">
+  <meta name="description" content="Personal food lookup for glycemic index and diabetes-related nutrition information.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Diabetes Food Check</title>
+  <style>
+    :root{font-family:Arial,sans-serif;color:#17352a;background:#eef5f1}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh}
+    header{background:#176b4d;color:white;padding:22px 18px}
+    header h1{font-size:1.55rem;margin:0}
+    header p{margin:5px 0 0;opacity:.9}
+    main{max-width:720px;margin:auto;padding:18px}
+    .search{display:flex;gap:8px;position:sticky;top:0;background:#eef5f1;padding:8px 0 14px;z-index:2}
+    input{width:100%;font-size:1.1rem;padding:14px;border:2px solid #99b8aa;border-radius:12px;background:white}
+    button{font:inherit;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
+    .card{background:white;border-radius:16px;padding:17px;margin-bottom:13px;box-shadow:0 2px 9px #17352a18}
+    .card h2{font-size:1.15rem;margin:0 0 5px}
+    .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #e3ebe7}
+    .row:last-of-type{border:0}
+    .value{font-weight:700;text-align:right}
+    .low{color:#187247}.medium{color:#9a6500}.high{color:#b3332a}
+    .favorite{float:right;background:#e7f3ed;color:#176b4d;font-size:1.25rem;padding:5px 10px}
+    .note,.source{font-size:.87rem;color:#53675f;line-height:1.4}
+    .empty{text-align:center;padding:34px 15px;color:#53675f}
+    footer{font-size:.8rem;color:#53675f;line-height:1.45;padding:8px 3px 25px}
+  </style>
+</head>
+<body>
+  <header><h1>Diabetes Food Check</h1><p>Quickly check carbs, fiber, GI and glycemic load</p></header>
+  <main>
+    <div class="search"><input id="search" type="search" placeholder="Search apple, oatmeal, rice…" aria-label="Search foods"></div>
+    <div id="results"></div>
+    <footer>GI values are typical published values and can vary by variety, ripeness, processing and cooking. Nutrition values are common serving estimates. Use this as a personal reference, not as a substitute for advice from your clinician or dietitian.</footer>
+  </main>
+  <script>
+    const foods=[
+      {n:"Apple, raw",s:"1 medium (182 g)",gi:36,c:25,f:4.4,su:19,p:0.5,k:195,cal:95},
+      {n:"Banana, ripe",s:"1 medium (118 g)",gi:51,c:27,f:3.1,su:14,p:1.3,k:422,cal:105},
+      {n:"Blueberries, raw",s:"1 cup (148 g)",gi:53,c:21,f:3.6,su:15,p:1.1,k:114,cal:84},
+      {n:"Orange, raw",s:"1 medium (131 g)",gi:43,c:15.4,f:3.1,su:12.2,p:1.2,k:237,cal:62},
+      {n:"Oatmeal, rolled, cooked",s:"1 cup cooked",gi:55,c:28,f:4,su:1,p:6,k:164,cal:166},
+      {n:"White bread",s:"1 slice (25 g)",gi:75,c:12.5,f:0.7,su:1.4,p:2.3,k:32,cal:67},
+      {n:"Lentils, boiled",s:"1 cup",gi:32,c:40,f:15.6,su:3.6,p:18,k:731,cal:230},
+      {n:"Chickpeas, boiled",s:"1 cup",gi:28,c:45,f:12.5,su:8,p:14.5,k:477,cal:269},
+      {n:"Sweet potato, boiled",s:"1 medium",gi:46,c:27,f:3.8,su:8.7,p:2.1,k:475,cal:112},
+      {n:"Potato, baked, with skin",s:"1 medium",gi:85,c:37,f:4,su:2,p:4.3,k:926,cal:161},
+      {n:"Brown rice, cooked",s:"1 cup",gi:50,c:45.8,f:3.5,su:0.7,p:4.5,k:154,cal:216},
+      {n:"White rice, cooked",s:"1 cup",gi:73,c:44.5,f:0.6,su:0.1,p:4.3,k:55,cal:205},
+      {n:"Kidney beans, boiled",s:"1 cup",gi:24,c:40,f:13.1,su:0.6,p:15.3,k:713,cal:225},
+      {n:"Plain Greek yogurt, nonfat",s:"3/4 cup (170 g)",gi:11,c:6,f:0,su:6,p:17,k:240,cal:100},
+      {n:"Whole milk",s:"1 cup",gi:31,c:12,f:0,su:12,p:8,k:366,cal:149},
+      {n:"Peanuts",s:"1 ounce",gi:14,c:4.6,f:2.4,su:1.3,p:7.3,k:200,cal:161}
+    ];
+    const search=document.querySelector("#search"),out=document.querySelector("#results");
+    const saved=new Set(JSON.parse(localStorage.getItem("dfc-favorites")||"[]"));
+    function cls(gi){return gi<=55?"low":gi<70?"medium":"high"}
+    function label(gi){return gi<=55?"Low":gi<70?"Medium":"High"}
+    function card(x){
+      const net=Math.max(0,x.c-x.f),gl=Math.round(x.gi*net/100),fav=saved.has(x.n);
+      return `<article class="card"><button class="favorite" data-name="${x.n}" aria-label="Favorite">${fav?"★":"☆"}</button>
+      <h2>${x.n}</h2><div class="note">${x.s}</div>
+      <div class="row"><span>Glycemic index</span><span class="value ${cls(x.gi)}">${x.gi} · ${label(x.gi)}</span></div>
+      <div class="row"><span>Estimated glycemic load</span><span class="value">${gl}</span></div>
+      <div class="row"><span>Total carbohydrates</span><span class="value">${x.c} g</span></div>
+      <div class="row"><span>Fiber</span><span class="value">${x.f} g</span></div>
+      <div class="row"><span>Estimated net carbs</span><span class="value">${net.toFixed(1)} g</span></div>
+      <div class="row"><span>Sugar</span><span class="value">${x.su} g</span></div>
+      <div class="row"><span>Protein</span><span class="value">${x.p} g</span></div>
+      <div class="row"><span>Potassium</span><span class="value">${x.k} mg</span></div>
+      <div class="row"><span>Calories</span><span class="value">${x.cal}</span></div></article>`
+    }
+    function render(){
+      const q=search.value.trim().toLowerCase();
+      let list=q?foods.filter(x=>x.n.toLowerCase().includes(q)):foods.filter(x=>saved.has(x.n));
+      if(!q&&!list.length){out.innerHTML='<div class="empty">Search for a food above. Tap ☆ to save a favorite.</div>';return}
+      out.innerHTML=list.map(card).join("")||'<div class="empty">No matching food yet.</div>';
+    }
+    search.addEventListener("input",render);
+    out.addEventListener("click",e=>{const b=e.target.closest("[data-name]");if(!b)return;const n=b.dataset.name;saved.has(n)?saved.delete(n):saved.add(n);localStorage.setItem("dfc-favorites",JSON.stringify([...saved]));render()});
+    if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    render();
+  </script>
+</body>
+</html>
