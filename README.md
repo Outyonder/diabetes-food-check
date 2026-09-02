@@ -2,4 +2,4 @@
 
 A personal, mobile-friendly food reference for glycemic index, carbohydrates and other diabetes-related nutrition information.
 
-This first prototype uses a small built-in food list. Values can vary by food variety, brand, preparation and serving size.
+This version searches USDA FoodData Central and retains a small built-in list of foods with typical published GI values. Values can vary by food variety, brand, preparation and serving size.
